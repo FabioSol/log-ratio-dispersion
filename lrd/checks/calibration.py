@@ -398,7 +398,7 @@ def v6_4():
     only near N = 1000, and a well-separated one (the shared study, _eps_star_study).
 
     Pass (fixed before the run), for every source and member r in {1, 2, inf}:
-      * |N eps* / c_r(p) - 1| <= 0.15 at N = 8192, and
+      * |N eps* / c_r(p) - 1| <= 0.05 at N = 8192 (the thesis's "within 5%"; measured max 4.7%), and
       * that relative error is at most the error at N = 1024 plus 0.05 (the gap does not grow).
     """
     st = _eps_star_study()
@@ -406,7 +406,7 @@ def v6_4():
     ok = True; details = []
     for (si, r), v in st.items():
         errs = [abs(x / v['c'] - 1) for x in v['n_eps'][i0:i1]]
-        good = errs[-1] <= 0.15 and errs[-1] <= errs[0] + 0.05
+        good = errs[-1] <= 0.05 and errs[-1] <= errs[0] + 0.05
         ok &= good
         details.append(f'source {si + 1}, r={r:>3}: c_r = {v["c"]:.3f};  N eps* at N = {_STUDY_NS[i0:]}: '
                        + '; '.join(f'{x:.2f} [{lo:.2f}, {hi:.2f}]' for x, lo, hi in
@@ -679,17 +679,17 @@ def v6_7():
     """The data behind the convergence figure: the shared study (_eps_star_study) over the
     whole range N = 16 .. 8192, with 90% batch intervals.
 
-    Pass (V6.4's tolerance, fixed before the run): at N = 8192, |N eps* / c_r(p) - 1| <= 0.15
+    Pass (V6.4's tolerance, fixed before the run): at N = 8192, |N eps* / c_r(p) - 1| <= 0.05
     for every source and member.
     """
     st = _eps_star_study()
     ok = True; details = []
     for (si, r), v in st.items():
         err = abs(v['n_eps'][-1] / v['c'] - 1)
-        ok &= err <= 0.15
+        ok &= err <= 0.05
         details.append(f'source {si + 1}, r={r:>3}: c_r = {v["c"]:.3f};  N eps* = '
                        + ' '.join(f'{x:.2f}' for x in v['n_eps']) + f';  rel. error at 8192 {err:.1%}'
-                       + ('  ok' if err <= 0.15 else '  FAILS'))
+                       + ('  ok' if err <= 0.05 else '  FAILS'))
     return Result(
         passed=ok,
         summary='N eps* at N = 8192 against c_r(p): '
