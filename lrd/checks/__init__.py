@@ -1,8 +1,8 @@
-"""The thesis's verification checks (Appendix B, app:index), one definition each.
+"""The thesis's verification checks (Appendix C, app:index), one definition each.
 
 Every quantitative claim in the thesis is produced by one check here.  A check is
 a zero-argument function (fixed seeds, so its numbers are reproducible) that
-returns a Result: an explicit pass/fail, a one-line summary matching Appendix B,
+returns a Result: an explicit pass/fail, a one-line summary matching Appendix C,
 the printed details, the metrics, and any arrays a figure needs.
 
     from lrd.checks import path
@@ -66,7 +66,7 @@ REGISTRY = {}
 
 
 def check(id, title, ref='', slow=False):
-    """Register a check under its Appendix B id (e.g. 'V3.2')."""
+    """Register a check under its Appendix C id (e.g. 'V3.2')."""
     def deco(fn):
         c = Check(id, title, ref, fn, slow)
         REGISTRY[id] = c

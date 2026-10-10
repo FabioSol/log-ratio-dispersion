@@ -160,23 +160,30 @@ def face(v, r, tol=1e-12):
         Z = np.flatnonzero(np.abs(w) <= tol * _scale(v))
         s = np.sign(w)
         s[Z] = 0.0
-        deficit = s.sum()
         if len(Z) == 0:
             return [s]
-        # free entries in [-1,1] summing to -deficit: vertices put +-1 on a subset
+        k, target = len(Z), -s.sum()
         verts = []
-        k = len(Z)
-        for m in range(k + 1):       # m entries at +1, rest at -1 -> sum 2m - k
-            if abs(2 * m - k + deficit) < 1e-9:
-                for pick in combinations(range(k), m):
+        # vertices of {z in [-1,1]^k : sum z = target}: every entry +-1 except at most one (j),
+        # which carries the fractional remainder.  The parity-matched barycentre fallback was wrong
+        # for odd n with ties, where the true vertices have one fractional entry (face bug fix).
+        for j in [None] + list(range(k)):
+            idx = [i for i in range(k) if i != j]
+            for m in range(len(idx) + 1):          # m of idx at +1, the rest at -1
+                rest = target - (2 * m - len(idx)) # value entry j must carry
+                if j is None:
+                    if abs(rest) > 1e-9:
+                        continue
+                elif not (-1 - 1e-12 <= rest <= 1 + 1e-12):
+                    continue
+                for pick in combinations(idx, m):
+                    z = -np.ones(k)
+                    z[list(pick)] = 1.0
+                    if j is not None:
+                        z[j] = rest
                     g = s.copy()
-                    g[Z] = -1.0
-                    g[Z[list(pick)]] = 1.0
+                    g[Z] = z
                     verts.append(g)
-        if not verts:                # deficit not integer-matched: use the barycentre
-            g = s.copy()
-            g[Z] = -deficit / k
-            verts.append(g)
         return verts
     raise ValueError("dD_r is a singleton for 1 < r < inf away from span{1}")
 

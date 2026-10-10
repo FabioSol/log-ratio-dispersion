@@ -1,4 +1,4 @@
-"""Chapter 6 checks: the budget is valid, and tight exactly when."""
+"""Chapter 5 checks: the budget is valid, and tight exactly when."""
 import numpy as np
 from scipy.optimize import minimize
 

@@ -2,7 +2,7 @@
 import numpy as np
 import pytest
 
-from lrd import noise_sweep
+from lrd import general_g, noise_sweep
 from lrd.core import dual, is_degenerate, nrm
 from lrd.prob import entropy, kl, logsumexp, softmax
 from lrd.samplers import NOMS, PH5, degenerate_row, degenerate_sampler
@@ -110,3 +110,19 @@ def test_frozen_sweep_has_every_cell():
                     assert len(cell[name]['per_seed']) == sw['seeds']
     for name in ['D_1', 'D_2', 'D_inf']:
         assert all(e is not None for e in sw['res']['onehot|0.0'][name]['eps_c'])
+
+
+def test_mbls_arm_on_onehot_is_label_smoothing():
+    """MbLS at margin 0 on a one-hot target is label smoothing with alpha = s: the penalty on the
+    logits is sigma_G(-Z) = max(Z) - mean(Z) (G = u - simplex), so the fitted softmax must be
+    (1 - s) e_k + s/n.  A single zero feature (d = 1, l2 = 0) learns only the bias, isolating the
+    penalty.  Also checks agreement with the general-G solver.  Regression for the sign bug where
+    fit used mean(Z) - min(Z) and trained a different member."""
+    n = 5
+    X = np.zeros((1, 1)); y = np.array([0]); e_k = np.eye(n)[0]
+    for s in [0.1, 0.3, 0.5, 0.9]:
+        W = noise_sweep.fit(X, y, n, 'mbls', float(s), nominal='onehot', l2=0.0)
+        p = softmax(np.hstack([X, np.ones((1, 1))]) @ W)[0]
+        ls = (1 - s) * e_k + s / n
+        np.testing.assert_allclose(p, ls, atol=1e-5)
+        np.testing.assert_allclose(p, general_g.solve(e_k, float(s), general_g.mbls(n)), atol=1e-5)

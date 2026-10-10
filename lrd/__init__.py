@@ -5,8 +5,8 @@
     worst_case  exact ground truth for the adversary's inner problem
     prob        softmax, logsumexp, KL, entropy
     samplers    fixed nominals and the degeneracy-aware sampler
-    noise_sweep the Chapter 8 label-noise sweep and the exact collapse threshold
+    noise_sweep the Chapter 7 label-noise sweep and the exact collapse threshold
                 (CLI: python -m lrd.noise_sweep)
-    checks      every check in Appendix B, with explicit pass criteria
+    checks      every check in Appendix C, with explicit pass criteria
     paths       where figures and frozen data live
 """

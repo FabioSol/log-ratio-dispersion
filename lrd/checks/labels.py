@@ -1,4 +1,4 @@
-"""Chapter 8 checks: the logit corollary and the budget's boundary."""
+"""Chapter 7 checks: the logit corollary and the budget's boundary."""
 import numpy as np
 from scipy.stats import multivariate_normal
 
@@ -61,7 +61,7 @@ def v7_2():
                 for fr in [.25, .6, .95, 1.2]:
                     eps = fr * sat; mu = min(1., lam + eps / den)
                     pred = (1 - mu) * p + mu * np.ones(n) / n
-                    worst = max(worst, float(np.max(np.abs(solve(pu, eps, r) - pred))))
+                    worst = max(worst, float(np.max(np.abs(solve(pu, eps, r, sat_slack=-2.0) - pred))))
     onehot = 0.0                                   # lam = 0 (cor:onehotls), eps > 0
     for n in [3, 5, 10]:
         e = np.zeros(n); e[1] = 1.; u = np.ones(n) / n
@@ -69,7 +69,7 @@ def v7_2():
             den = nrm(u - e, dual(r))
             for fr in [.05, .2, .5, .8, .99, 1.3]:
                 mu = min(1., fr)
-                onehot = max(onehot, float(np.max(np.abs(solve(e, fr * den, r) - ((1 - mu) * e + mu * u)))))
+                onehot = max(onehot, float(np.max(np.abs(solve(e, fr * den, r, sat_slack=-2.0) - ((1 - mu) * e + mu * u)))))
     return Result(
         passed=worst < SOLVER_TOL and onehot < SOLVER_TOL,
         summary=(f'max|solver - closed form| = {worst:.2e} over (n, rho) x 3 members x 4 radii; '
@@ -327,23 +327,27 @@ def v7_7():
         metrics=dict(eps_star=es, eps_c=ec, displacement=disp, checks=checks))
 
 
-@check('V7.8', 'MbLS (m = 0), a general-G member, reproduces the box member', 'sec:logit-sweep', slow=True)
+@check('V7.8', 'MbLS (m = 0), a general-G member, is a distinct member below the box', 'sec:logit-sweep', slow=True)
 def v7_8():
     """A member of the beyond-norm-balls construction (sec:beyond) on the classification sweep.
-    MbLS with margin m = 0 takes G = u - simplex, whose support function is sigma_G(v) = mean(v)
-    - min(v); it is not a norm ball.  We run it on the one-hot sweep exactly as the other arms
+    MbLS with margin m = 0 takes G = u - simplex; the penalty on the logits is sigma_G(-Z) =
+    max(Z) - mean(Z) (not a norm ball).  We run it on the one-hot sweep exactly as the other arms
     (warm-started along a grid, strength chosen on the noisy validation set, scored on clean
     held-out data; collapse flagged by |W|max below COLLAPSE_TOL rather than an exact threshold),
-    and compare it to the box member r = 1, the endpoint it is closest to.
+    and compare it to the box member r = 1 and to the best penalised arm.
 
     Pass, at every one-hot noise rate rho in {0, 0.1, 0.2, 0.4}:
       a real member   the chosen strength is strictly inside the grid (a penalised operating
                       point, neither the unpenalised model nor a collapsed one);
-      matches the box its mean held-out accuracy is within one point of the box member r = 1 on
-                      the same seeds (paired);
+      below the box   its mean held-out accuracy is below the box member r = 1 on the same seeds,
+                      the paired 95% interval entirely below zero -- MbLS is a distinct member, not
+                      the box, and the gap grows with the noise;
       overshoots      like every norm-ball member, at its chosen strength it raises the ECE above
                       the unpenalised MLE and leaves the model underconfident (mean confidence
                       below mean accuracy).
+
+    Also reports, for Table 7.2, MbLS's accuracy at the validation choice and the paired 95%
+    interval of (MbLS - best penalised arm).
     """
     T95 = 2.131                                   # t quantile, 15 degrees of freedom
     sw = noise_sweep.load_sweep()
@@ -351,8 +355,10 @@ def v7_8():
     ntr, nte, nva, sep, l2 = sw['ntr'], sw['nte'], sw['nva'], sw['sep'], sw['l2']
     rhos = [0.0, 0.1, 0.2, 0.4]
     grid = np.concatenate([[0.0], np.geomspace(0.02, 4.0, 27)])
-    checks = dict.fromkeys(['a real member', 'matches the box', 'overshoots'], True)
-    details = [f'{seeds} seeds; MbLS (m = 0) at its validation strength against the box member:']
+    PEN = ['D_1', 'D_2', 'D_inf', 'ls', 'cp']
+    checks = dict.fromkeys(['a real member', 'below the box', 'overshoots'], True)
+    details = [f'{seeds} seeds; MbLS (m = 0) at its validation strength vs the box member and the best arm:']
+    table = {}
     for rho in rhos:
         lam = n * rho / (n - 1)
         te = np.full((seeds, len(grid)), np.nan); va = te.copy()
@@ -379,26 +385,33 @@ def v7_8():
                 va[si, gi] = noise_sweep.evaluate(W, Xva, yva)
         live = ~np.isnan(te).any(0)
         gv = int(np.flatnonzero(live)[np.nanargmax(np.nanmean(va[:, live], 0))])
-        box = np.array(sw['res'][f'onehot|{rho}']['D_1']['test_at_val'], float)
-        diff = te[:, gv] - box
-        m, se = diff.mean(), diff.std(ddof=1) / np.sqrt(seeds)
-        acc_m = float(np.nanmean(te[:, gv])); conf_m = float(np.nanmean(conf[:, gv]))
+        mbls_seed = te[:, gv]
+        R = sw['res'][f'onehot|{rho}']
+        box = np.array(R['D_1']['test_at_val'], float)
+        best_arm = max(PEN, key=lambda nm: float(np.mean(R[nm]['test_at_val'])))
+        best = np.array(R[best_arm]['test_at_val'], float)
+        dbox = mbls_seed - box; mb, seb = dbox.mean(), dbox.std(ddof=1) / np.sqrt(seeds)
+        dbest = mbls_seed - best; mbe, sebe = dbest.mean(), dbest.std(ddof=1) / np.sqrt(seeds)
+        acc_m = float(np.nanmean(mbls_seed)); conf_m = float(np.nanmean(conf[:, gv]))
         ece_m = float(np.nanmean(ece_[:, gv])); base_m = float(np.mean(base_ece))
         checks['a real member'] &= 0 < gv < int(np.flatnonzero(live)[-1])
-        checks['matches the box'] &= abs(m) < 0.01
+        checks['below the box'] &= (mb + T95 * seb) < 0
         checks['overshoots'] &= ece_m > base_m and conf_m < acc_m
+        table[rho] = dict(acc=acc_m, ll=float(np.nanmean(ll[:, gv])), ece=ece_m,
+                          vs_box=[mb, seb], vs_best=[mbe, sebe], best_arm=best_arm)
         details.append(
-            f'rho={rho}: eps*={grid[gv]:.3f}  acc {acc_m:.3f} (box {box.mean():.3f}, '
-            f'diff {m:+.4f} [{m - T95 * se:+.4f}, {m + T95 * se:+.4f}])  '
+            f'rho={rho}: eps*={grid[gv]:.3f}  acc {acc_m:.3f}  '
+            f'vs box {mb:+.4f} [{mb - T95 * seb:+.4f}, {mb + T95 * seb:+.4f}]  '
+            f'vs best ({best_arm}) {mbe:+.4f} [{mbe - T95 * sebe:+.4f}, {mbe + T95 * sebe:+.4f}]  '
             f'll {float(np.nanmean(ll[:, gv])):.3f}  ece {ece_m:.3f} (MLE {base_m:.3f})  conf {conf_m:.3f}')
     details += [f"{k}: {'ok' if v else 'FAILS'}" for k, v in checks.items()]
     return Result(
         passed=all(checks.values()),
-        summary=('MbLS (m = 0), a non-norm general-G member, lands on the box member within one '
-                 'point of accuracy and overshoots calibration the same way; '
+        summary=('MbLS (m = 0), a non-norm general-G member, is a distinct member below the box '
+                 '(the gap growing with noise) that overshoots calibration like the norm-ball members; '
                  + ', '.join(f"{k} {'ok' if v else 'FAILS'}" for k, v in checks.items())),
         details=details,
-        metrics=dict(checks=checks))
+        metrics=dict(checks=checks, table=table))
 
 
 @check('V7.9', 'a second setting: anisotropic classes dethrone the NAIVE prototype', 'tab:aniso', slow=True)
@@ -427,7 +440,8 @@ def v7_9():
                              points, paired interval clear of zero (it dominated under isotropy);
       generative wins        both the whitened prototype and LDA beat the best penalised arm,
                              paired interval clear of zero;
-      no member special      the six arms' mean accuracy spans less than five points;
+      no member special      the five norm-ball and relative arms span less than five points;
+      mbls distinct          MbLS, the non-ball member, falls below all of them at the highest noise;
       penalty helps          the best arm is at least as accurate as the unpenalised MLE;
       overshoots             every arm raises the ECE above the MLE and is underconfident (the same
                              calibration overshoot as the isotropic sweep), norm balls less than the
@@ -441,7 +455,7 @@ def v7_9():
     sw = noise_sweep.load_sweep()
     n, d, seeds = sw['n'], sw['d'], sw['seeds']
     ntr, nte, nva, sep, l2 = sw['ntr'], sw['nte'], sw['nva'], sw['sep'], sw['l2']
-    DR = ['D_1', 'D_2', 'D_inf']; REL = ['ls', 'cp']; ALL = DR + REL + ['mbls']
+    DR = ['D_1', 'D_2', 'D_inf']; REL = ['ls', 'cp']; PEN = DR + REL; ALL = PEN + ['mbls']
     KEY = {'D_1': 1, 'D_2': 2, 'D_inf': np.inf, 'ls': 'ls', 'cp': 'cp', 'mbls': 'mbls'}
     rhos = [0.0, 0.1, 0.2, 0.4]
     grid = np.concatenate([[0.0], np.geomspace(0.02, 4.0, 27)])
@@ -452,7 +466,7 @@ def v7_9():
         return Q * np.sqrt(lam)
 
     checks = dict.fromkeys(['naive prototype falls', 'generative wins', 'no member special',
-                            'penalty helps', 'overshoots', 'bayes verified'], True)
+                            'penalty helps', 'overshoots', 'bayes verified', 'mbls distinct'], True)
     details = [f'{seeds} seeds; anisotropic classes (condition number 25), one-hot nominal:']
     table = {}
     bayes_disagree = 0                                # linear Bayes rule vs exact MVN log-posterior
@@ -507,7 +521,7 @@ def v7_9():
         best = max(ALL, key=lambda a: accm[a])
         gap = np.array(acc[best]) - np.array(proto); gm = gap.mean()
         gse = gap.std(ddof=1) / np.sqrt(seeds)
-        spread = max(accm.values()) - min(accm.values())
+        spread = max(accm[a] for a in PEN) - min(accm[a] for a in PEN)   # the 5 norm-ball/relative arms
         maxD_ece = max(np.mean(ece_[a]) for a in DR); minREL_ece = min(np.mean(ece_[a]) for a in REL)
         maxD_ll = max(np.mean(ll[a]) for a in DR); minREL_ll = min(np.mean(ll[a]) for a in REL)
         # the generative rules beat the best discriminative arm, paired by seed
@@ -517,6 +531,8 @@ def v7_9():
         checks['naive prototype falls'] &= gm > 0.05 and gm - T95 * gse > 0
         checks['generative wins'] &= gwin > 0
         checks['no member special'] &= spread < 0.05
+        if rho == rhos[-1]:                                     # at the highest noise MbLS, the
+            checks['mbls distinct'] = accm['mbls'] < min(accm[a] for a in PEN)   # non-ball member, falls below
         checks['penalty helps'] &= accm[best] >= np.mean(mle_acc)
         checks['overshoots'] &= (all(np.mean(ece_[a]) > np.mean(mle_ece) for a in ALL)
                                  and all(np.mean(conf[a]) < accm[a] for a in ALL)
@@ -625,3 +641,41 @@ def v7_5():
         summary=', '.join(f"{k} {'ok' if v else 'FAILS'}" for k, v in checks.items()),
         details=details,
         metrics=dict(checks=checks))
+
+
+@check('V7.10', 'the frozen sweep reproduces: one cell against noise_sweep.json', 'fig:sweep', slow=True)
+def v7_10():
+    """Ties the frozen noise_sweep.json (read by V7.5 and V7.7) to the current code.  Reruns one
+    cell, (onehot, rho = 0.4), with the frozen config and asserts that, for every non-prototype
+    arm, the per-seed test accuracy at the validation choice (test_at_val), the validation choice
+    val_star, and the exact collapse threshold eps_c reproduce the JSON to 1e-12.
+
+    Pass: max absolute difference over all three, all arms < 1e-12."""
+    sw = noise_sweep.load_sweep()
+    cfg = {k: sw[k] for k in ('n', 'd', 'seeds', 'ntr', 'nte', 'nva', 'sep', 'l2')}
+    rho = 0.4
+    _, _, o = noise_sweep._cell(('onehot', rho, cfg))
+    frozen = sw['res'][f'onehot|{rho}']
+
+    def diff(a, b):                                    # nan/None-aware max abs difference
+        a = np.array([np.nan if x is None else x for x in np.atleast_1d(a)], float)
+        b = np.array([np.nan if x is None else x for x in np.atleast_1d(b)], float)
+        both_nan = np.isnan(a) & np.isnan(b)
+        d = np.where(both_nan, 0.0, np.abs(a - b))
+        return float(np.nanmax(d)) if d.size else 0.0
+
+    worst = 0.0; details = []
+    for name, arm in noise_sweep.ARMS:
+        if name == 'prototype':
+            continue
+        s = noise_sweep.summarise(o[name]); f = frozen[name]
+        d_tav = diff(s['test_at_val'], f['test_at_val'])
+        d_vs = abs(s['val_star'] - f['val_star'])
+        d_ec = diff(s['eps_c'], f['eps_c'])
+        w = max(d_tav, d_vs, d_ec); worst = max(worst, w)
+        details.append(f'{name}: test_at_val {d_tav:.1e}, val_star {d_vs:.1e}, eps_c {d_ec:.1e}')
+    return Result(
+        passed=worst < 1e-12,
+        summary=f'onehot rho=0.4 reruns to noise_sweep.json: max abs diff {worst:.1e} (< 1e-12)',
+        details=details,
+        metrics=dict(worst=worst))

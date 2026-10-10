@@ -182,3 +182,25 @@ def test_rows_equal_scalar_forms(r):
                                [centre(v, r) for v in V], rtol=0, atol=1e-9)
     np.testing.assert_allclose(D_rows(V, r), [D(v, r) for v in V], rtol=1e-9, atol=1e-9)
     np.testing.assert_allclose(subgrad_rows(V, r), [subgrad(v, r) for v in V], atol=1e-12)
+
+
+def test_face_r1_vertices_with_ties():
+    """face(v, 1) must return the full vertex set, including vertices with one fractional entry.
+    Regression for the odd-n-with-ties bug where the barycentre was returned instead."""
+    V = [np.round(g, 9) for g in face(np.array([0., 0., 1., 1., 2.]), 1)]
+    for want in ([-1, -1, 1, 0, 1], [-1, -1, 0, 1, 1]):
+        assert any(np.allclose(g, want) for g in V), want
+
+
+def test_face_feasible_r1_matches_LP_on_ties():
+    """At r = 1 with integer f (ties) and a zero in ph, face_feasible must equal LP tightness,
+    including the odd-n fractional-vertex regime."""
+    from lrd.worst_case import worst_case_LP
+    rng = np.random.default_rng(1)
+    for _ in range(500):
+        n = int(rng.choice([3, 5, 7]))
+        f = rng.integers(0, 3, size=n).astype(float)
+        ph = rng.random(n); ph[rng.integers(n)] = 0.0; ph = ph / ph.sum()
+        eps = float(rng.uniform(0.05, 0.6))
+        tight = abs(worst_case_LP(ph, f, eps, np.inf) - (ph @ f + eps * D(f, 1))) < 1e-7
+        assert face_feasible(ph, f, eps, 1) == tight

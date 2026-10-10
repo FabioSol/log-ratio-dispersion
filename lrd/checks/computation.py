@@ -1,4 +1,4 @@
-"""Chapter 4 checks: computation and verification."""
+"""Chapter 3 checks and Appendices A and B: computation and verification."""
 import numpy as np
 from scipy.optimize import minimize
 
@@ -132,9 +132,9 @@ def v3_6():
             x = solve(PH5, fr * sat, r)
             worst_below = max(worst_below, abs(nrm(x - PH5, p) - fr * sat))
         for fr in [1.01, 1.5, 3.0]:
-            x = solve(PH5, fr * sat, r)
-            worst_above = max(worst_above, abs(nrm(x - PH5, p) - sat))
+            x = solve(PH5, fr * sat, r, sat_slack=-2.0)   # push the closed-form shortcut out to
+            worst_above = max(worst_above, abs(nrm(x - PH5, p) - sat))   # 3 eps_sat so the optimiser works
     return Result(
-        passed=worst_below < SOLVER_TOL and worst_above == 0.0,
+        passed=worst_below < SOLVER_TOL and worst_above < SOLVER_TOL,
         summary=f'distance error below saturation {worst_below:.2e}; freeze error above {worst_above:.2e}',
         metrics=dict(distance_error=worst_below, freeze_error=worst_above))

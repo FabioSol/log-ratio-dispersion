@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The label-noise sweep behind Chapter 8 (fig:sweep, obs:collapse).
+"""The label-noise sweep behind Chapter 7 (fig:sweep, obs:collapse).
 
 A linear softmax classifier is trained on Gaussian class clusters with symmetric
 label noise at rate rho, under each penalty arm, across a grid of strengths eps,
@@ -121,10 +121,10 @@ def fit(X, y, n, arm, s, nominal='onehot', lam=0.0, l2=1e-3, w0=None):
             S = (P * np.log(np.maximum(P, 1e-300))).sum(-1)
             loss = np.mean(lse - (Z * Y).sum(-1) + s * S)
             G = ((P - Y) + s * P * (np.log(np.maximum(P, 1e-300)) - S[:, None])) / N
-        elif arm == 'mbls':                           # MbLS with m = 0: G = u - simplex, so
-            jmin = Z.argmin(-1)                       # sigma_G(Z) = mean(Z) - min(Z) (gauge-free)
-            loss = np.mean(lse - (Z * Y).sum(-1) + s * (Z.mean(-1) - Z.min(-1)))
-            sg = np.full((N, n), 1.0 / n); sg[np.arange(N), jmin] -= 1.0
+        elif arm == 'mbls':                           # MbLS with m = 0: G = u - simplex,
+            jmax = Z.argmax(-1)                       # penalty sigma_G(-Z) = max(Z) - mean(Z)
+            loss = np.mean(lse - (Z * Y).sum(-1) + s * (Z.max(-1) - Z.mean(-1)))
+            sg = np.full((N, n), -1.0 / n); sg[np.arange(N), jmax] += 1.0
             G = ((P - Y) + s * sg) / N
         else:
             loss = np.mean(lse - (Z * Y).sum(-1) + s * D_rows(Z, arm))

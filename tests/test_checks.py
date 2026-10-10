@@ -1,4 +1,4 @@
-"""Every check in Appendix B passes.  This is the one command that confirms every
+"""Every check in Appendix C passes.  This is the one command that confirms every
 number quoted in the thesis still reproduces:
 
     pytest tests/test_checks.py --runslow
@@ -17,10 +17,10 @@ def test_check_passes(chk):
     assert res.passed, '\n' + res.report()
 
 
-def test_registry_covers_appendix_b():
+def test_registry_covers_appendix_c():
     expected = ({f'V3.{i}' for i in range(1, 10)} | {f'V4.{i}' for i in range(1, 10)}
-                | {f'V5.{i}' for i in range(1, 8)} | {f'V6.{i}' for i in range(1, 15)}
-                | {f'V7.{i}' for i in range(1, 10)} | {'VA.1', 'VB.1', 'VB.2'})
+                | {f'V5.{i}' for i in range(1, 8)} | {f'V6.{i}' for i in range(1, 15)} | {'V6.1b'}
+                | {f'V7.{i}' for i in range(1, 11)} | {'VA.1', 'VB.1', 'VB.2'})
     assert set(REGISTRY) == expected
 
 

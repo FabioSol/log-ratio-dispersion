@@ -177,7 +177,8 @@ def _slope(logN, logy):
 
 @check('V6.6', 'the rate mismatch', 'prop:rate', slow=True)
 def v6_6(B=2000):
-    """The certificate radius E||p_hat - p||_{r*} decays like N^{-1/2}; the risk-optimal
+    """Its 30% constant comparison is coarser than V6.7's 5%; the slopes are the point here.
+    The certificate radius E||p_hat - p||_{r*} decays like N^{-1/2}; the risk-optimal
     radius eps* = argmin_eps E KL(p || x*(eps)) like N^{-1}.
 
     eps* is the refined argmin of the draw-averaged risk curve (_refined_log_argmin).
@@ -958,3 +959,22 @@ def v6_13():
                  f'wins vs Hausser-Strimmer (finite) {sig_hs[r]}/{cells}' for r in rs]
                 + [f'Hausser-Strimmer infinite in {hs_inf} draws'],
         metrics=dict(sig_kt=sig_kt, loss_kt=loss_kt, sig_hs=sig_hs))
+
+
+@check('V6.1b', 'the coding experiment, full design: the robust code loses to KT', 'obs:geom', slow=True)
+def v6_1b():
+    """The fuller 45-cell design behind the thesis's full-design numbers (n in {4, 8, 16},
+    N in {8, 16, 32, 64, 128}, 400 draws): at c = 1 the members win significantly in 7, 9, 8 cells
+    (r = 1, 2, inf) and lose in 37, 32, 35, so the certificate reading fails on the larger design
+    too.  Reproduces the counts cited in sec:corr-coding.  About 40 minutes."""
+    r = v6_1.fn(quick=False)
+    sig, sigloss = r.metrics['sig'], r.metrics['sigloss']
+    wins = [int(sig[str((rr, 1.0))]) for rr in (1, 2, np.inf)]
+    losses = [int(sigloss[str((rr, 1.0))]) for rr in (1, 2, np.inf)]
+    ok = wins == [7, 9, 8] and losses == [37, 32, 35]
+    return Result(
+        passed=ok and r.passed,
+        summary=f'full design, c = 1: significant wins {wins} (want [7, 9, 8]), '
+                f'losses {losses} (want [37, 32, 35])',
+        details=r.details,
+        metrics=dict(wins=wins, losses=losses))

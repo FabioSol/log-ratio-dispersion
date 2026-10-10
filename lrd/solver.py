@@ -13,8 +13,8 @@ F is strictly convex and coercive: the minimiser is unique and stationarity suff
   r = 1       : D_1(v) = min_c sum|v_i - c|  ->  epigraph variables t_i; SLSQP.
 
 At and past the saturation radius eps_sat = ||ph - u||_{r*} the solution is u exactly
-(prop:saturation), returned in closed form.  The tilt o (appendix app:tilt) disables
-that shortcut, because the closed form assumes o = 1.
+(prop:saturation), returned in closed form.  A tilt o (the tilted-log-loss extension of the
+future work, sec:concl-future) disables that shortcut, because the closed form assumes o = 1.
 """
 import numpy as np
 from scipy.optimize import minimize

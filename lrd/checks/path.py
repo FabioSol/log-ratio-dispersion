@@ -1,4 +1,4 @@
-"""Chapter 5 checks: the solution path."""
+"""Chapter 4 checks: the solution path."""
 import numpy as np
 
 from . import EXACT_TOL, SOLVER_TOL, Result, check
@@ -113,7 +113,7 @@ def v4_5():
         w = 0.0
         for fr in [.05, .3, .5, .7, .9, .99, 1.05, 2.0]:
             eps = fr * sat_b1
-            w = max(w, float(np.max(np.abs(solve(ph, eps, np.inf) - n3_path(ph, eps)))))
+            w = max(w, float(np.max(np.abs(solve(ph, eps, np.inf, sat_slack=-2.0) - n3_path(ph, eps)))))
         worst = max(worst, w)
         details.append(f"{np.round(ph, 3)}  case {'A' if ph[1] < 1/3 else 'B'}  "
                        f"sat={sat_b1:.4f}  max|diff|={w:.1e}")
@@ -206,7 +206,7 @@ def v4_2():
         sat = nrm(ph - np.ones(n) / n, 1)
         for fr in [0.05, 0.2, 0.4, 0.6, 0.8, 0.95, 1.2]:
             eps = fr * sat
-            worst = max(worst, float(np.max(np.abs(solve(ph, eps, np.inf) - ho_yeung(ph, eps)))))
+            worst = max(worst, float(np.max(np.abs(solve(ph, eps, np.inf, sat_slack=-2.0) - ho_yeung(ph, eps)))))
             cells += 1
     return Result(
         passed=worst < SOLVER_TOL,
@@ -239,7 +239,7 @@ def v4_3():
         sat = nrm(ph - np.ones(n) / n, np.inf)
         for fr in [0.05, 0.2, 0.4, 0.6, 0.8, 0.95, 1.2]:
             eps = fr * sat
-            worst = max(worst, float(np.max(np.abs(solve(ph, eps, 1) - box_clip(ph, eps)))))
+            worst = max(worst, float(np.max(np.abs(solve(ph, eps, 1, sat_slack=-2.0) - box_clip(ph, eps)))))
             cells += 1
     return Result(
         passed=worst < SOLVER_TOL,
