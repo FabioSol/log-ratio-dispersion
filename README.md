@@ -28,6 +28,8 @@ lrd/                 the package
   checks/*.py        the checks by topic, one function each, with explicit pass criteria
 tests/               pytest: unit and regression tests, plus every check
 noise_sweep.json     frozen output of the 16-seed sweep (about 15 min to regenerate)
+*.ipynb              one notebook per topic (keystone, computation, path, validity,
+                     calibration, labels): runs a subset of the checks and draws the figures
 ```
 
 Each check returns a `Result` that carries its pass/fail, a summary, and the numbers behind it:
@@ -59,8 +61,19 @@ were produced with (Python 3.12); `requirements-lock.txt` is the full lockfile.
 
 ## Notebooks
 
-One notebook per topic runs its checks and draws the thesis figures. They are added separately,
-once a clean full re-run has refreshed their outputs.
+One notebook per topic runs a subset of its checks and draws the thesis figures from each check's
+`Result.data` (the full set of checks lives in `tests/`). Run them from the repository root, so
+`lrd` is importable, with the pinned environment:
+
+```
+pip install -r requirements.txt
+jupyter nbconvert --to notebook --execute --inplace keystone.ipynb   # or open it in Jupyter
+```
+
+`keystone`, `computation`, `path` and `validity` are fast; `calibration` and `labels` run the
+slow checks and take minutes to hours. Figures are written to `figures/` (gitignored). The outputs
+committed here were produced with the pinned environment; a rerun reproduces the selections and
+certificate radii exactly, and the held-out accuracies to within solver float noise.
 
 ## Citation
 
