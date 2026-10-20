@@ -18,7 +18,7 @@ def test_check_passes(chk):
 
 
 def test_registry_covers_appendix_c():
-    expected = ({f'V3.{i}' for i in range(1, 10)} | {f'V4.{i}' for i in range(1, 10)}
+    expected = ({f'V3.{i}' for i in range(1, 11)} | {f'V4.{i}' for i in range(1, 10)}
                 | {f'V5.{i}' for i in range(1, 8)} | {f'V6.{i}' for i in range(1, 15)} | {'V6.1b'}
                 | {f'V7.{i}' for i in range(1, 11)} | {'VA.1', 'VB.1', 'VB.2'})
     assert set(REGISTRY) == expected
